@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:evenflow:mug:req:1"
+           xmlns:mug="urn:evenflow:mug:req:1"
+           elementFormDefault="qualified"
+           version="1.1">
+
+  <!-- ========================================================= -->
+  <!--  SCHEMA DECLARATION & ROOT SETTINGS                       -->
+  <!-- ========================================================= -->
+
+
+
+  <!-- =========================
+       Base / shared simple types
+  ========================== -->
+
+  <!-- Deterministic key: YYYYMMDDThhmmss±zzzz -->
+  <!-- =============================================== -->
+  <!-- 1. TYPE DEFINITIONS                            -->
+  <!-- =============================================== -->
+  <!-- All <xs:simpleType> and <xs:complexType> here. -->
+
+  <xs:simpleType name="DocumentKey">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{8}T[0-9]{6}[+-][0-9]{4}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Error Types (canonical vocabulary) -->
+  <xs:simpleType name="ErrorTypeId">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="syntax"/>
+      <xs:enumeration value="semantic"/>
+      <xs:enumeration value="runtime"/>
+      <xs:enumeration value="build_deployment"/>
+      <xs:enumeration value="logical"/>
+      <xs:enumeration value="integration_contract"/>
+      <xs:enumeration value="configuration_env"/>
+      <xs:enumeration value="architectural"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Space-separated list of error types -->
+  <xs:simpleType name="ErrorTypeIds">
+    <xs:list itemType="mug:ErrorTypeId"/>
+  </xs:simpleType>
+
+  <!-- Test Approaches (canonical vocabulary) -->
+  <xs:simpleType name="TestApproachId">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="linter"/>
+      <xs:enumeration value="pytest"/>
+      <xs:enumeration value="build_ci"/>
+      <xs:enumeration value="manual_review"/>
+      <xs:enumeration value="env_smoke"/>
+      <xs:enumeration value="monitoring"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Space-separated list of approaches -->
+  <xs:simpleType name="TestApproachIds">
+    <xs:list itemType="mug:TestApproachId"/>
+  </xs:simpleType>
+  
+  <!-- Requirement origin (source classification) -->
+  <xs:simpleType name="RequirementOrigin">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="feat"/>
+      <xs:enumeration value="fix"/>
+      <xs:enumeration value="build"/>
+      <xs:enumeration value="chore"/>
+      <xs:enumeration value="ci"/>
+      <xs:enumeration value="docs"/>
+	  <xs:enumeration value="style"/>
+	  <xs:enumeration value="refactor"/>
+	  <xs:enumeration value="perf"/>
+	  <xs:enumeration value="test"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ===========
+       Root element
+  ============ -->
+  <!-- =============================================== -->
+  <!-- 2. ELEMENT DECLARATIONS                        -->
+  <!-- =============================================== -->
+  <!-- All <xs:element name="..."> (with type=...) here,
+       including the root element at the end.         -->
+
+
+
+  <xs:element name="RequirementsSpec" type="mug:RequirementsSpec">
+
+    <xs:unique name="UniqueRequirementIds">
+      <xs:selector xpath=".//mug:Requirement"/>
+      <xs:field xpath="@id"/>
+    </xs:unique>
+
+    <xs:unique name="UniqueSectionCodes">
+      <xs:selector xpath="mug:Section"/>
+      <xs:field xpath="@code"/>
+    </xs:unique>
+
+    <xs:unique name="UniqueSectionTitles">
+      <xs:selector xpath="mug:Section"/>
+      <xs:field xpath="@title"/>
+    </xs:unique>
+
+    <xs:unique name="UniqueSectionPositions">
+      <xs:selector xpath="mug:Section"/>
+      <xs:field xpath="@position"/>
+    </xs:unique>
+  
+</xs:element>
+  <xs:complexType name="RequirementsSpec">
+    <xs:sequence>
+      <xs:element name="Metadata" type="mug:Metadata" minOccurs="0"/>
+      <!-- Open-ended set of sections -->
+      <xs:element name="Section" type="mug:Section" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="document_key" type="mug:DocumentKey" use="required"/>
+</xs:complexType>
+
+  <xs:complexType name="Metadata">
+    <xs:sequence>
+      <xs:element name="Title"       type="xs:string"/>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+      <xs:element name="Type"        type="xs:string"/>
+      <!-- optional timestamps if you want to carry them -->
+      <xs:element name="CreatedAt"   type="xs:string" minOccurs="0"/>
+      <xs:element name="UpdatedAt"   type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <!-- Non-empty title/type for a bit of hygiene -->
+    <xs:assert test="normalize-space(mug:Title) != ''"/>
+    <xs:assert test="normalize-space(mug:Type)  != ''"/>
+  </xs:complexType>
+
+  <xs:complexType name="Section">
+    <xs:sequence>
+      <!-- Requirements belong to exactly one Section (mirrors FK via containment) -->
+      <xs:element name="Requirement" type="mug:Requirement" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="code"     type="xs:string"          use="required"/>
+    <xs:attribute name="title"    type="xs:string"          use="required"/>
+    <xs:attribute name="position" type="xs:positiveInteger" use="required"/>
+
+    <!-- Basic hygiene, analogous to DB constraints -->
+    <xs:assert test="normalize-space(@title) != ''"/>
+  </xs:complexType>
+
+  <!-- Atomic requirement with only objective metadata -->
+  <xs:complexType name="Requirement" mixed="true">
+    <xs:attribute name="id"              type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="position"        type="xs:positiveInteger" use="required"/>
+	<xs:attribute name="origin"          type="mug:RequirementOrigin" use="optional"/>
+    <xs:attribute name="error_types"     type="mug:ErrorTypeIds"   use="optional"/>
+    <xs:attribute name="test_approaches" type="mug:TestApproachIds" use="optional"/>
+
+    <!-- Body must contain non-whitespace text -->
+    <xs:assert test="normalize-space(.) != ''"/>
+
+    <!-- Prevent duplicate tokens inside lists (XSD 1.1 XPath 2.0) -->
+    <xs:assert
+      test="not(@error_types) or count(data(@error_types)) = count(distinct-values(data(@error_types)))"/>
+    <xs:assert
+      test="not(@test_approaches) or count(data(@test_approaches)) = count(distinct-values(data(@test_approaches)))"/>
+  </xs:complexType>
+
+
+</xs:schema>

@@ -1,0 +1,52 @@
+name: Commit Lint
+
+on: [push, pull_request]
+
+jobs:
+  commitlint:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Commitlint
+        run: npm install --global @commitlint/{cli,config-conventional}
+
+      - name: "Debug: print environment, working dir, and config location"
+        run: |
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          pwd
+          ls -l
+          ls -l config/node/commitlint.config.js || echo "Not in config/node/"
+        working-directory: ${{ github.workspace }}
+
+      - name: Lint PR commits
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
+          echo "Head SHA: ${{ github.event.pull_request.head.sha }}"
+          commitlint --from ${{ github.event.pull_request.base.sha }} \
+                     --to ${{ github.event.pull_request.head.sha }} \
+                     --config config/node/commitlint.config.js
+        working-directory: ${{ github.workspace }}
+
+      - name: Lint pushed commits
+        if: github.event_name == 'push'
+        run: |
+          echo "From: ${{ github.event.before }}"
+          echo "To:   ${{ github.sha }}"
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous commit detected, skipping commitlint."
+            exit 0
+          else
+            commitlint --from ${{ github.event.before }} \
+                       --to ${{ github.sha }} \
+                       --config config/node/commitlint.config.js
+          fi
+        working-directory: ${{ github.workspace }}

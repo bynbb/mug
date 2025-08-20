@@ -1,0 +1,15 @@
+# ruff.toml (repo root)
+
+# Global settings
+line-length = 100
+src = ["src"]
+
+# Exclude all test files/dirs from Ruff (lint & format)
+exclude = ["tests/**"]
+
+[lint]
+# Match your current rules
+select = ["E", "F", "I", "UP", "B", "ANN"]
+
+[lint.isort]
+known-first-party = ["mug"]

@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
-import sys
 import argparse
-from typing import Optional, Tuple
+import sys
+from typing import Union
+
 try:
     import xmlschema
-except Exception as e:
-    print("ERROR: The 'xmlschema' package is required. Install it with: pip install xmlschema", file=sys.stderr)
+    # Explicit union so mypy accepts 1.0 vs 1.1 selection at runtime
+    SchemaType = Union["xmlschema.XMLSchema10", "xmlschema.XMLSchema11"]
+except Exception:  # pragma: no cover
+    print(
+        "ERROR: The 'xmlschema' package is required. Install it with: pip install xmlschema",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 
-def extract_position(err) -> Tuple[Optional[int], Optional[int]]:
+def extract_position(err: object) -> tuple[int | None, int | None]:
     """
     Best-effort extraction of (line, column) from an xmlschema validation error.
     xmlschema may set .position, or we can look at .obj/.elem.sourceline.
     Column often isn't available; return None if unknown.
     """
-    line = None
-    col = None
+    line: int | None = None
+    col: int | None = None
 
     # Try explicit position attribute
     pos = getattr(err, "position", None)
@@ -32,8 +38,9 @@ def extract_position(err) -> Tuple[Optional[int], Optional[int]]:
         for attr in ("obj", "elem"):
             node = getattr(err, attr, None)
             if node is not None:
-                line = getattr(node, "sourceline", None)
-                if line is not None:
+                maybe_line = getattr(node, "sourceline", None)
+                if isinstance(maybe_line, int):
+                    line = maybe_line
                     break
 
     return line, col
@@ -41,24 +48,37 @@ def extract_position(err) -> Tuple[Optional[int], Optional[int]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Validate an XML file against an XSD schema using the 'xmlschema' library (with XSD 1.1 support)."
+        description=(
+            "Validate an XML file against an XSD schema using the 'xmlschema' library "
+            "(with XSD 1.1 support)."
+        )
     )
     parser.add_argument("xml", help="Path to the XML instance document")
     parser.add_argument("xsd", help="Path to the XSD schema")
-    parser.add_argument("--xsd-version", choices=["1.0", "1.1"], default="1.1",
-                        help="XSD version to use (default: 1.1)")
-    parser.add_argument("--fail-fast", action="store_true",
-                        help="Stop at the first validation error")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress 'OK' message on success")
+    parser.add_argument(
+        "--xsd-version",
+        choices=["1.0", "1.1"],
+        default="1.1",
+        help="XSD version to use (default: 1.1)",
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop at the first validation error",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress 'OK' message on success",
+    )
     args = parser.parse_args()
 
-    # Load schema (use XMLSchema11 when requested)
+    # Load schema (use XMLSchema11 when requested, otherwise XMLSchema10)
     try:
         if args.xsd_version == "1.1":
-            schema = xmlschema.XMLSchema11(args.xsd)  # full XSD 1.1 validation incl. xs:assert
+            schema: SchemaType = xmlschema.XMLSchema11(args.xsd)  # XSD 1.1 incl. xs:assert
         else:
-            schema = xmlschema.XMLSchema(args.xsd)
+            schema = xmlschema.XMLSchema10(args.xsd)
     except xmlschema.XMLSchemaException as e:
         print(f"{args.xsd}: SCHEMA ERROR: {e}", file=sys.stderr)
         sys.exit(3)
@@ -74,7 +94,10 @@ def main() -> None:
             line_str = str(line) if line is not None else "0"
             col_str = str(col) if col is not None else "0"
             # Mimic lxml-like format: file:line:col: LEVEL: message
-            print(f"{args.xml}:{line_str}:{col_str}: ERROR: {err.reason}", file=sys.stderr)
+            print(
+                f"{args.xml}:{line_str}:{col_str}: ERROR: {err.reason}",
+                file=sys.stderr,
+            )
             error_count += 1
             if args.fail_fast:
                 break

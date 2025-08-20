@@ -1,7 +1,9 @@
-# Mug – XML Schema Validator (XSD 1.0 / 1.1)
+# Mug
 
 > ⚠️ This project is in early development (pre-release/alpha).
 > APIs and behavior will change rapidly as features are added.
+
+## XML Schema Validator (XSD 1.0 / 1.1)
 
 Mug validates XML instance documents against an XSD schema, with full support for **XSD 1.1** (including `xs:assert` and XPath 2.0 functions) via the [xmlschema](https://pypi.org/project/xmlschema/) library.
 
@@ -18,31 +20,49 @@ pip install mug
 ### From Source
 
 ```bash
-git clone https://github.com/bynbb/mug/mug.git
+git clone https://github.com/bynbb/mug.git
 cd mug
 pip install -e .
 ```
+
+> **Note:** Console commands (like `mug`) are available only after install.
+> If you prefer not to install, you can run via module from the repo root:
+> `PYTHONPATH=src python -m mug <xml> <xsd>`
 
 ---
 
 ## Usage
 
-After installation (either via PyPI or from source), the command is the same:
+After installation (either via PyPI or from source), run:
 
 ```bash
-mug-validate <xml-file> <xsd-file> [options]
+mug <xml-file> <xsd-file> [options]
+# or
+python -m mug <xml-file> <xsd-file> [options]
+```
+
+**Example:**
+
+```bash
+mug requirements/2025/08/20/req_20250820T142442+0000.xml requirements-v1.xsd
+```
+
+On success, it prints:
+
+```
+OK
 ```
 
 ---
 
-### Options
+## Options
 
-| Option                    | Description                                              |
-| ------------------------- | -------------------------------------------------------- |
-| `--xsd-version {1.0,1.1}` | Selects which version of XSD to use. Default is **1.1**. |
-| `--fail-fast`             | Stop at the first validation error.                      |
-| `--quiet`                 | Suppress the `"OK"` message when validation passes.      |
-| `-h`, `--help`            | Show usage help.                                         |
+| Option                    | Description                                       |
+| ------------------------- | ------------------------------------------------- |
+| `--xsd-version {1.0,1.1}` | Selects the XSD version. Default is **1.1**.      |
+| `--fail-fast`             | Stop at the first validation error.               |
+| `--quiet`                 | Suppress the `OK` message when validation passes. |
+| `-h`, `--help`            | Show usage help.                                  |
 
 ---
 
@@ -55,52 +75,34 @@ mug-validate <xml-file> <xsd-file> [options]
 
 ---
 
-## Example
+## Output Format
 
-Validate `requirements-spec-example.xml` against `requirements-v1.xsd`:
-
-```bash
-mug-validate requirements-spec-example.xml requirements-v1.xsd
-```
-
-Output on success:
+Errors are printed in a familiar style:
 
 ```
-OK
-```
-
-Output on error (example):
-
-```
-requirements-spec-example.xml:12:5: ERROR: Element 'Requirement': Missing attribute 'id'.
+file:line:column: LEVEL: message
 ```
 
 ---
 
 ## Development
 
-### Local editable install & CLI test
-
 ```bash
-git clone https://github.com/youruser/mug.git
+git clone https://github.com/bynbb/mug.git
 cd mug
 pip install -e .
 
 # verify CLI is available
-mug-validate --help
+mug --help
 
 # sample validation
-mug-validate requirements-spec-example.xml requirements-v1.xsd
+mug requirements-spec-example.xml requirements-v1.xsd
 ```
 
 ---
 
 ## Notes
 
-* Errors are printed in a style similar to `lxml`:
+* XSD 1.1 features (e.g., `xs:assert`) require `--xsd-version 1.1` (this is the default).
+* If you see `ERROR: The 'xmlschema' package is required`, install it with `pip install xmlschema`.
 
-  ```
-  file:line:column: LEVEL: message
-  ```
-* For XSD 1.1 features (like `xs:assert`), use `--xsd-version 1.1` (default).
-* The validator streams errors, so it can handle large XML files efficiently.
