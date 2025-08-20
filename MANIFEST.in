@@ -1,0 +1,36 @@
+# Top-level essentials
+include README.md
+include LICENSE
+include pyproject.toml
+include pytest.ini
+include mypy.ini
+include package.json
+include .npmrc
+
+# Python source (explicit even though packages are auto-included)
+recursive-include src *.py
+recursive-include src *.pyi
+recursive-include src py.typed
+
+# Docs and policies
+graft docs
+recursive-include docs *.md
+
+# Requirements & schemas (you have XML/XSD in requirements/)
+graft requirements
+recursive-include requirements *.txt *.in *.xml *.xsd
+
+# Scripts (e.g., changelog script)
+graft scripts
+
+# Node/tooling configs that are useful for contributors
+graft config
+
+# (Optional) keep tests out of the sdist to slim it down:
+prune tests
+
+# Cleanups / exclusions
+global-exclude *.pyc
+global-exclude __pycache__/*
+global-exclude .DS_Store
+

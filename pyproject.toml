@@ -1,20 +1,52 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
 
 [project]
 name = "mug"
 version = "0.0.2"
 description = "CLI to capture, tag, and query project docs with user-defined XML/tags embedded in Markdown files."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"        # use >=3.8 only if you need it
 dependencies = [
-  "xmlschema>=2.0"
+  "mypy>=1.11",
+  "xmlschema>=2.0",
 ]
 
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [project.scripts]
-mug-validate = "mug.cli:main"
+mug = "mug.cli:main"
+
+
+# Tell hatchling what to package (src layout)
+[tool.hatch.build.targets.wheel]
+packages = ["src/mug"]            # or ["src/obk"]
+include = [
+  "src/mug/py.typed",             # keep if you ship typing
+  # "src/mug/xsd/*.xsd",
+  # "src/mug/templates/*.xml",
+]
+
+# Use extras for dev/test, and have hatch pull them in
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0.0",
+  "pytest-cov>=4.0.0",
+  "pytest-mock>=3.10.0",
+  "python-dotenv>=1.0.0",
+  # "toml",                        # only if supporting <3.11
+]
+qa = [
+  "mypy>=1.10",
+  "ruff>=0.5",
+  "black>=24.0",
+]
+
+[tool.hatch.envs.default]
+features = ["test", "qa"]
+
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+mug = ["py.typed"]
