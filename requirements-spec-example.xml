@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mug:RequirementsSpec xmlns:mug="urn:evenflow:mug:req:1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:evenflow:mug:req:1 requirements-v1.xsd" document_key="20250819T201500+0000">
+  <mug:Metadata>
+    <mug:Title>Specification – Magic Kingdom Guest Experience</mug:Title>
+    <mug:Description>Golden example that demonstrates the requirements schema using a Disney World theme. All checks are black-box and verify observable behavior.</mug:Description>
+    <mug:Type>spec</mug:Type>
+  </mug:Metadata>
+
+  <!--  2.1 Identifiers & Keys  -->
+  <mug:Section code="2.1" title="Identifiers &amp; Keys" position="1">
+    <mug:Requirement id="1" position="1" origin="feat" error_types="logical syntax" test_approaches="pytest linter"> Each guest session must be assigned a deterministic session_key that matches YYYYMMDDThhmmss±zzzz. </mug:Requirement>
+    <mug:Requirement id="2" position="2" origin="feat" error_types="semantic" test_approaches="linter manual_review"> Attraction identifiers should use the prefix "MK-" followed by a numeric code (e.g., MK-007). </mug:Requirement>
+  </mug:Section>
+
+  <!--  2.2 Data Structures & Relationships  -->
+  <mug:Section code="2.2" title="Data Structures &amp; Relationships" position="2">
+    <mug:Requirement id="3" position="1" origin="feat" error_types="integration_contract" test_approaches="manual_review"> The park model must show that each Land belongs to exactly one Park. </mug:Requirement>
+    <mug:Requirement id="4" position="2" origin="feat" error_types="logical integration_contract" test_approaches="pytest"> A guest must not hold more than one active Lightning Lane for the same attraction at the same time. </mug:Requirement>
+  </mug:Section>
+
+  <!--  2.3 Validation & Integrity Constraints  -->
+  <mug:Section code="2.3" title="Validation &amp; Integrity Constraints" position="3">
+    <mug:Requirement id="5" position="1" origin="fix" error_types="syntax logical" test_approaches="linter pytest"> Ticket barcode strings must match the configured pattern and checksum. </mug:Requirement>
+    <mug:Requirement id="6" position="2" origin="fix" error_types="configuration_env" test_approaches="build_ci env_smoke"> Environment configuration must define a valid timezone and currency for each park deployment. </mug:Requirement>
+  </mug:Section>
+
+  <!--  2.4 Temporal Data & Auditing  -->
+  <mug:Section code="2.4" title="Temporal Data &amp; Auditing" position="4">
+    <mug:Requirement id="7" position="1" origin="build" error_types="configuration_env" test_approaches="build_ci monitoring"> Admission events must be timestamped in UTC; displays may show local time derived from UTC. </mug:Requirement>
+  </mug:Section>
+
+  <!--  2.5 Naming & Conventions  -->
+  <mug:Section code="2.5" title="Naming &amp; Conventions" position="5">
+    <mug:Requirement id="8" position="1" origin="feat" error_types="semantic" test_approaches="linter manual_review"> Attraction code names must be lowercase-with-dashes; marketing names may include spaces and emojis. </mug:Requirement>
+  </mug:Section>
+
+  <!--  2.6 Access Patterns & Indexing  -->
+  <mug:Section code="2.6" title="Access Patterns &amp; Indexing" position="6">
+    <mug:Requirement id="9" position="1" origin="chore" error_types="runtime logical" test_approaches="pytest monitoring"> Guest lookups by session_key must be indexed and should meet the stated p95 latency budget. </mug:Requirement>
+  </mug:Section>
+
+  <!--  2.7 Extensibility & Evolution  -->
+  <mug:Section code="2.7" title="Extensibility &amp; Evolution" position="7">
+    <mug:Requirement id="10" position="1" origin="chore" error_types="architectural" test_approaches="manual_review"> The reservations model must allow adding new attraction types (e.g., parades) without breaking existing APIs. </mug:Requirement>
+  </mug:Section>
+
+  <!--  Optional extra to show open-ended sections  -->
+  <mug:Section code="2.8" title="Security &amp; Privacy" position="8">
+    <mug:Requirement id="11" position="1" origin="ci" error_types="integration_contract" test_approaches="pytest"> API requests must be authenticated with signed tokens; unauthenticated requests must be rejected with a standard error shape. </mug:Requirement>
+  </mug:Section>
+</mug:RequirementsSpec>

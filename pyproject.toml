@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mug"
+version = "0.0.2"
+description = "CLI to capture, tag, and query project docs with user-defined XML/tags embedded in Markdown files."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "xmlschema>=2.0"
+]
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+mug-validate = "mug.cli:main"
