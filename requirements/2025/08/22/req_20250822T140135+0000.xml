@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mug:RequirementsSpec xmlns:mug="urn:evenflow:mug:req:1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:evenflow:mug:req:1 requirements-v1.xsd" document_key="20250822T140135+0000">
+  <mug:Metadata>
+    <mug:Title>Specification – Mug Requirements</mug:Title>
+    <mug:Description>Incorporate app architectural concerns</mug:Description>
+    <mug:Type>spec</mug:Type>
+  </mug:Metadata>
+
+  <mug:Section code="1.0" title="Users Module Folder Setup" position="1">
+    <mug:Requirement id="1" position="1" origin="feat" error_types="architectural semantic" test_approaches="linter pytest"> The repository defines three top-level Python packages for all application code: `mug/composition/` (composition roots and entrypoints only), `mug/common/` (cross-cutting abstractions by CA layer; no concrete wiring), and `mug/modules/` (feature modules). These directories must exist and be importable. </mug:Requirement>
+    <mug:Requirement id="7" position="2" origin="feat" error_types="architectural semantic" test_approaches="linter pytest"> To establish asymmetric coupling from the start, the folder skeleton above is created before adding business logic; modules and consumers may import only through layer-specific public facades (no imports into internals). </mug:Requirement>
+    <mug:Requirement id="2" position="3" origin="feat" error_types="architectural semantic" test_approaches="linter pytest"> Within `modules/users`, the project includes the layers `{domain, application, infrastructure, presentation}`. </mug:Requirement>
+    <mug:Requirement id="3" position="4" origin="feat" error_types="architectural semantic" test_approaches="linter pytest">Each feature is a package per layer (e.g., `app/domain/users/`). Layer roots are namespace packages (PEP 420) and MUST NOT include an `__init__.py`. A feature subpackage MAY include an `__init__.py` only to define a public API by re-exporting selected symbols; otherwise it SHOULD be omitted.</mug:Requirement>
+    <mug:Requirement id="4" position="5" origin="feat" error_types="architectural semantic" test_approaches="linter pytest"> The `common/` module is organized by CA layers and contains only cross-cutting abstractions (no concrete wiring): `common/{domain, application, infrastructure, presentation}`. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="2.0" title="Composition Root &amp; CLI" position="2">
+    <mug:Requirement id="67" position="1" origin="feat" error_types="architectural integration_contract" test_approaches="linter pytest"> The `mug/composition/bootstrap.py` module exposes an application-level mediator and registers `users` handlers; infrastructure services are available via a sub-container. Ports are bound to implementations here. </mug:Requirement>
+    <mug:Requirement id="5" position="2" origin="feat" error_types="architectural logical" test_approaches="env_smoke pytest"> The `mug/composition/__main__.py` module hosts the Typer root and mounts module sub-apps. </mug:Requirement>
+    <mug:Requirement id="6" position="3" origin="feat" error_types="architectural" test_approaches="env_smoke pytest"> CLI help displays the `users` group and its commands. </mug:Requirement>
+    <mug:Requirement id="8" position="5" origin="feat" error_types="integration_contract" test_approaches="build_ci linter"> A console script entrypoint is declared: `[project.scripts].mug = &quot;mug.composition.__main__:main&quot;`. </mug:Requirement>
+    <mug:Requirement id="9" position="6" origin="feat" error_types="architectural" test_approaches="linter pytest"> The `composition/bootstrap.py` module defines an `AppContainer` with a Mediator singleton and feature sub-containers. </mug:Requirement>
+    <mug:Requirement id="10" position="7" origin="feat" error_types="architectural logical" test_approaches="linter"> No Service Locator is used: only the composition root owns the DI container, and modules do not import containers/providers. </mug:Requirement>
+    <mug:Requirement id="11" position="8" origin="feat" error_types="integration_contract" test_approaches="pytest"> Feature modules provide a DI registration hook (e.g., `modules/users/composition/di.py`) that is used by `bootstrap()` to register handlers. </mug:Requirement>
+    <mug:Requirement id="94" position="9" origin="feat" error_types="architectural" test_approaches="linter build_ci"> Only `mug/composition/bootstrap.py` binds process configuration (environment variables, files, or `pyproject` settings) to ports/options; domain and application layers do not read process configuration directly. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="3.0" title="Dependency Rules (CA + MMA)" position="3">
+    <mug:Requirement id="12" position="1" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.domain` does not import from `{application, infrastructure, presentation, composition}`. </mug:Requirement>
+    <mug:Requirement id="13" position="2" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.application` imports only its own domain (+ `mug.common.domain`). </mug:Requirement>
+    <mug:Requirement id="14" position="3" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.presentation` imports its own application (+ `mug.common.application` helpers), but not infrastructure. </mug:Requirement>
+    <mug:Requirement id="15" position="4" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.infrastructure` may import its own `application.public` (ports/interfaces) and its own `domain.public`, but must not import application implementations or any presentation code. </mug:Requirement>
+    <mug:Requirement id="16" position="5" origin="feat" error_types="architectural" test_approaches="linter"> `composition` imports application/infrastructure for wiring and does not import domain directly. </mug:Requirement>
+    <mug:Requirement id="17" position="6" origin="feat" error_types="architectural" test_approaches="linter"> Cross-module internal imports are not permitted (e.g., `users.*` cannot import `billing.*` internals). </mug:Requirement>
+    <mug:Requirement id="18" position="7" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.composition` may import its module’s application/infrastructure for wiring, but not its domain internals (facades must be used). </mug:Requirement>
+    <mug:Requirement id="19" position="8" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.application.public` exposes use cases and ports/interfaces; other layers and modules must import application only via `application.public`. </mug:Requirement>
+    <mug:Requirement id="20" position="9" origin="feat" error_types="architectural" test_approaches="linter"> Domain models are persistence-agnostic (no ORM annotations); ORM mapping lives in infrastructure. </mug:Requirement>
+    <mug:Requirement id="95" position="10" origin="feat" error_types="architectural" test_approaches="linter"> `modules.*.{domain,application}` perform no filesystem or network I/O and do not read process configuration (`os.environ`); such I/O and configuration access live in infrastructure and are surfaced via ports. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="4.0" title="Import Linter Config &amp; Gate" position="4">
+    <mug:Requirement id="68" position="1" origin="feat" error_types="architectural" test_approaches="linter"> `.importlinter` contains contracts for all dependency rules. </mug:Requirement>
+    <mug:Requirement id="69" position="2" origin="build" error_types="architectural build_deployment" test_approaches="build_ci"> CI runs `lint-imports` when `MUG_RUN_IMPORT_LINTER=1`; locally it may be skipped. </mug:Requirement>
+    <mug:Requirement id="21" position="3" origin="feat" error_types="architectural" test_approaches="linter"> `.importlinter` includes explicit contracts such as: `domain_independent`, `app_depends_only_on_domain`, `infra_can_import_app_public`, and `no_cross_module_internals`. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="5.0" title="Use Cases &amp; Ports (users/project_root)" position="5">
+    <mug:Requirement id="22" position="1" origin="feat" error_types="architectural semantic" test_approaches="linter pytest"> The domain layer facade (`domain/public.py`) re-exports domain entities, value objects, and errors from its internal `users` package. </mug:Requirement>
+    <mug:Requirement id="23" position="2" origin="feat" error_types="integration_contract logical" test_approaches="pytest"> The application layer facade (`application/public.py`) re-exports its `users` use cases and ports/interfaces. </mug:Requirement>
+    <mug:Requirement id="24" position="3" origin="feat" error_types="architectural integration_contract" test_approaches="linter pytest"> The infrastructure layer implements adapters for domain/application ports and imports application only via `application.public`; it does not depend on presentation. </mug:Requirement>
+    <mug:Requirement id="25" position="4" origin="feat" error_types="runtime logical" test_approaches="env_smoke pytest"> The presentation layer CLI calls application factories (via composition) and respects flag rules (e.g., mutual exclusivity). </mug:Requirement>
+    <mug:Requirement id="26" position="5" origin="feat" error_types="integration_contract" test_approaches="linter pytest"> Each layer’s `public.py` re-exports its internal implementations; external imports target `public.py`, not internals. </mug:Requirement>
+    <mug:Requirement id="96" position="6" origin="feat" error_types="architectural integration_contract" test_approaches="linter pytest"> `mug/common/{domain,application}` may expose minimal cross-cutting ports (e.g., `ClockPort`, `IdProvider`) via `public.py`; infrastructure provides implementations and composition binds them for consumers. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="6.0" title="CI &amp; Artifacts" position="7">
+    <mug:Requirement id="29" position="1" origin="build" error_types="build_deployment" test_approaches="build_ci"> CI jobs run unit/structure tests and enforce `lint-imports`. </mug:Requirement>
+    <mug:Requirement id="30" position="2" origin="build" error_types="build_deployment" test_approaches="build_ci"> CI generates a dependency diagram and uploads it as an artifact. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="7.0" title="Developer Ergonomics (DX)" position="8">
+    <mug:Requirement id="31" position="1" origin="chore" error_types="semantic"> Developer documentation describes how to run `python -m mug` and where module CLIs reside, including notes on editable install and IDE setup. </mug:Requirement>
+    <mug:Requirement id="32" position="2" origin="chore" error_types="semantic"> The README describes CA/MMA rules and how violations are caught by Import Linter. </mug:Requirement>
+    <mug:Requirement id="33" position="3" origin="chore" error_types="semantic" test_approaches="pytest"> `pytest.ini` allows timestamped test module naming. </mug:Requirement>
+    <mug:Requirement id="34" position="4" origin="chore" error_types="architectural build_deployment" test_approaches="linter"> The toolchain consistently targets Python 3.11 across `pyproject.toml`, `mypy.ini`, and Ruff settings. </mug:Requirement>
+    <mug:Requirement id="35" position="5" origin="build" error_types="semantic"> Developer docs include a convention stack and compatibility matrix (e.g., CA ↔ VSA intersections), plus CI guardrails (import rules, type strictness, test policies). </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="8.0" title="Root Hygiene &amp; Additional Structural Rules" position="9">
+    <mug:Requirement id="70" position="1" origin="feat" error_types="integration_contract" test_approaches="pytest"> The composition module includes both an entrypoint (`__main__.py`) and a bootstrap module (`bootstrap.py`). </mug:Requirement>
+    <mug:Requirement id="36" position="2" origin="feat" error_types="architectural" test_approaches="linter pytest"> Each layer in `modules/users` provides a `public.py` facade. </mug:Requirement>
+    <mug:Requirement id="37" position="3" origin="feat" error_types="semantic" test_approaches="linter pytest"> External imports of feature-internal paths (e.g., `mug.modules.users.domain.*`) are not permitted. </mug:Requirement>
+    <mug:Requirement id="38" position="4" origin="feat" error_types="architectural" test_approaches="linter pytest"> Across layer boundaries, only each layer’s `public.py` may be imported; internal imports are prohibited to preserve information hiding. </mug:Requirement>
+    <mug:Requirement id="90" position="5" origin="feat" error_types="architectural semantic" test_approaches="linter env_smoke"> CLI entrypoints (`__main__.py`) are thin: they parse arguments, invoke composition/bootstrap factories, and avoid importing domain or application internals directly. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="9.0" title="Anti-Patterns &amp; Prohibitions" position="10">
+    <mug:Requirement id="39" position="1" origin="feat" error_types="architectural" test_approaches="linter pytest"> In `mug/modules/**`, the `dependency_injector` library must not be imported (service locator is prohibited). </mug:Requirement>
+    <mug:Requirement id="40" position="2" origin="feat" error_types="architectural" test_approaches="linter pytest"> Only `mug/composition/**` may import `dependency_injector`. </mug:Requirement>
+    <mug:Requirement id="41" position="3" origin="feat" error_types="architectural logical" test_approaches="pytest"> Container lookups (`container.get(...)` / `providers.*(...)`) are prohibited in `mug/modules/**`. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="10.0" title="Inter-Pattern Contracts" position="11">
+    <mug:Requirement id="42" position="1" origin="feat" error_types="integration_contract" test_approaches="pytest"> Every command/query handler is registered with the Mediator via composition. </mug:Requirement>
+    <mug:Requirement id="43" position="2" origin="feat" error_types="architectural" test_approaches="linter"> Presentation handlers call only the application layer (not infra/domain internals). </mug:Requirement>
+    <mug:Requirement id="44" position="3" origin="feat" error_types="architectural" test_approaches="linter"> Application depends only on its own domain ports (facades), not internal implementations. </mug:Requirement>
+    <mug:Requirement id="45" position="4" origin="feat" error_types="architectural" test_approaches="linter pytest"> Pipeline behaviors (validation, logging, exception mapping) live in the application layer and are registered in the mediator pipeline; business handlers remain free of cross-cutting concerns. </mug:Requirement>
+    <mug:Requirement id="46" position="5" origin="feat" error_types="architectural" test_approaches="linter"> Events are outward-only coupling: modules publish domain/integration events without depending on consumers; subscribers live in their own bounded contexts. </mug:Requirement>
+    <mug:Requirement id="91" position="6" origin="feat" error_types="architectural" test_approaches="linter pytest"> Dependencies are provided via constructor injection; module-level singletons and global lookups are not used in application or presentation code. </mug:Requirement>
+    <mug:Requirement id="92" position="7" origin="feat" error_types="architectural logical" test_approaches="linter pytest"> `mug/common/{domain,application}` define base exception types (e.g., `DomainError`, `ApplicationError`) re-exported via `public.py`; mediator pipeline maps these to user-visible failures consistently. </mug:Requirement>
+    <mug:Requirement id="93" position="8" origin="feat" error_types="architectural" test_approaches="linter pytest"> Module DI hooks (`modules/*/composition/di.py`) are pure and idempotent: they only bind ports to implementations and perform no I/O or environment reads. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="11.0" title="Toolchain Governance &amp; Drift Control" position="12">
+    <mug:Requirement id="71" position="1" origin="feat" error_types="build_deployment" test_approaches="build_ci"> CI includes a weekly canary job with unpinned tool versions to detect drift. </mug:Requirement>
+    <mug:Requirement id="72" position="2" origin="build" error_types="architectural" test_approaches="linter"> Configuration parity is enforced: `mypy` python version, `requires-python` (pyproject), and runtime target must match. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="12.0" title="Observability &amp; Runtime Invariants" position="13">
+    <mug:Requirement id="73" position="1" origin="fix" error_types="runtime" test_approaches="env_smoke pytest"> Non-zero exit codes are returned for unhandled errors; zero for success paths. </mug:Requirement>
+    <mug:Requirement id="47" position="2" origin="feat" error_types="integration_contract" test_approaches="pytest"> A telemetry (logging/monitoring) hook is present at composition (can be no-op) to record successes, errors, and timings. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="13.0" title="SQLite Ephemeral Reporting DB" position="14">
+    <mug:Requirement id="48" position="1" origin="chore" error_types="build_deployment" test_approaches="pytest"> DDL files are embedded under `.../infrastructure/db/ddl/` and loadable via resources. </mug:Requirement>
+    <mug:Requirement id="49" position="2" origin="build" error_types="logical" test_approaches="pytest"> The generated DB uses `STRICT` tables and `PRAGMA foreign_keys=ON`. </mug:Requirement>
+    <mug:Requirement id="50" position="3" origin="build" error_types="integration_contract" test_approaches="pytest"> The command `db generate-empty` creates a schema with a `schema_version` row. </mug:Requirement>
+    <mug:Requirement id="51" position="4" origin="chore" error_types="integration_contract" test_approaches="pytest"> The command `db import` loads validated rows parsed from Markdown/XML. </mug:Requirement>
+    <mug:Requirement id="52" position="5" origin="chore" error_types="logical" test_approaches="pytest"> The command `db delete` removes or truncates tables depending on flags. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="14.0" title="DB Folder Strategy &amp; DDL Organization" position="15">
+    <mug:Requirement id="53" position="1" origin="chore" error_types="logical" test_approaches="pytest"> Database path policy: `.mug/db/&lt;module&gt;/&lt;yyyy-mm-dd&gt;-&lt;schema&gt;.sqlite`. </mug:Requirement>
+    <mug:Requirement id="54" position="2" origin="chore" error_types="semantic" test_approaches="pytest"> Migrations are stored under `.../db/migrations/` and are idempotent. </mug:Requirement>
+    <mug:Requirement id="55" position="3" origin="chore" error_types="integration_contract" test_approaches="pytest"> A `schema_version` table exists and is updated by migrations. </mug:Requirement>
+  </mug:Section>
+
+  <mug:Section code="15.0" title="CQRS Data Access" position="16">
+    <mug:Requirement id="56" position="1" origin="feat" error_types="build_deployment" test_approaches="pytest"> Query SQL files are stored under `.../queries/*.sql` and loadable via resources. </mug:Requirement>
+    <mug:Requirement id="57" position="2" origin="feat" error_types="semantic" test_approaches="pytest"> Query results map to dataclasses (or Pydantic models) with type checks. </mug:Requirement>
+    <mug:Requirement id="58" position="3" origin="feat" error_types="logical" test_approaches="linter pytest"> Command handlers do not return domain entities; queries do not mutate state. </mug:Requirement>
+    <mug:Requirement id="59" position="4" origin="feat" error_types="architectural" test_approaches="pytest"> Composition wires separate read/write services according to CQRS. </mug:Requirement>
+  </mug:Section>
+
+
+  <mug:Section code="17.0" title="Typer CLI – Dependencies &amp;  Contracts" position="18">
+    <mug:Requirement id="80" position="1" origin="feat" error_types="build_deployment" test_approaches="linter build_ci"> `pyproject.toml` declares Typer and Click as runtime deps compatible with Python 3.11 (Typer ≥0.12,&lt;1.0; Click ≥8.1,&lt;9.0); versions are locked via the project’s existing pinning policy. </mug:Requirement>
+    <mug:Requirement id="81" position="2" origin="feat" error_types="architectural" test_approaches="linter"> Only `mug/composition/__main__.py` and layer `presentation/**` may import `typer`/`click`; `domain`/`application`/`infrastructure` must not import them. </mug:Requirement>
+    <mug:Requirement id="82" position="3" origin="feat" error_types="integration_contract" test_approaches="pytest linter"> Each feature presentation exposes a Typer app via `presentation/public.py` as either `app: Typer` or `get_app() -> Typer`; the composition root mounts these apps without touching internals. </mug:Requirement>
+    <mug:Requirement id="83" position="4" origin="feat" error_types="runtime architectural" test_approaches="env_smoke pytest"> Importing any `presentation/public.py` performs no I/O or container side effects; Typer apps are constructed lazily (on `main()`/command invocation). </mug:Requirement>
+    <mug:Requirement id="84" position="5" origin="feat" error_types="logical" test_approaches="env_smoke pytest"> The composition registers module apps (stub), and (b) each feature app under its group name (e.g., `users`); command/group name collisions are prohibited. </mug:Requirement>
+    <mug:Requirement id="85" position="6" origin="feat" error_types="architectural logical" test_approaches="linter pytest"> CLI handlers are thin: they call application factories/use cases via composition; they do not import infrastructure or domain internals and do not perform container lookups. </mug:Requirement>
+    <mug:Requirement id="86" position="7" origin="feat" error_types="runtime" test_approaches="env_smoke pytest"> CLI error handling maps exceptions to non-zero exit codes and zero on success, consistent with runtime invariants. </mug:Requirement>
+    <mug:Requirement id="87" position="8" origin="feat" error_types="semantic" test_approaches="env_smoke pytest"> `python -m mug --help` and `mug --help` render consistent help text showing the `users` group and the system-level version command. </mug:Requirement>
+    <mug:Requirement id="88" position="9" origin="feat" error_types="integration_contract" test_approaches="env_smoke pytest"> The Typer root implements shell completion commands (`--install-completion` / `--show-completion`) where supported by Typer/Click. </mug:Requirement>
+    <mug:Requirement id="89" position="10" origin="feat" error_types="integration_contract" test_approaches="linter build_ci"> `mug/composition/__main__.py` exposes `main() -> int` that initializes the Typer app and is used by the console script `[project.scripts].mug`. </mug:Requirement>
+  </mug:Section>
+
+</mug:RequirementsSpec>
