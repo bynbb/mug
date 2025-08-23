@@ -106,3 +106,5 @@ mug requirements-spec-example.xml requirements-v1.xsd
 * XSD 1.1 features (e.g., `xs:assert`) require `--xsd-version 1.1` (this is the default).
 * If you see `ERROR: The 'xmlschema' package is required`, install it with `pip install xmlschema`.
 
+
+We use **Import Linter** to enforce module boundaries and keep layers independent.

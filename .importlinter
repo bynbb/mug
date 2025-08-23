@@ -1,0 +1,25 @@
+[importlinter]
+root_package = mug
+
+[contracts]
+[[contracts.contracts]]
+name = domain_independent
+type = forbidden
+source_modules = []
+forbidden_modules = []
+
+[[contracts.contracts]]
+name = app_depends_only_on_domain
+type = layers
+layers = []
+
+[[contracts.contracts]]
+name = infra_can_import_app_public
+type = forbidden
+source_modules = []
+forbidden_modules = []
+
+[[contracts.contracts]]
+name = no_cross_module_internals
+type = independence
+modules = []

@@ -9,12 +9,14 @@ description = "CLI to capture, tag, and query project docs with user-defined XML
 readme = "README.md"
 requires-python = ">=3.11"        # use >=3.8 only if you need it
 dependencies = [
-  "mypy>=1.11",
   "xmlschema>=2.0",
+  "typer>=0.12,<1.0",
+  "click>=8.1,<9.0",
+  "dependency-injector>=4.41",
 ]
 
 [project.scripts]
-mug = "mug.cli:main"
+mug = "mug.composition.__main__:main"
 
 
 # Tell hatchling what to package (src layout)
