@@ -205,3 +205,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Users demo database
+users_db.json

@@ -1,25 +1,54 @@
 [importlinter]
 root_package = mug
 
-[contracts]
-[[contracts.contracts]]
-name = domain_independent
+[contract:domain_independent]
 type = forbidden
-source_modules = []
-forbidden_modules = []
+source_modules =
+    mug.modules.users.domain
+    mug.common.domain
+forbidden_modules =
+    mug.modules.users.application
+    mug.modules.users.infrastructure
+    mug.modules.users.presentation
+    mug.modules.users.composition
+    mug.common.application
+    mug.common.infrastructure
+    mug.common.presentation
+    mug.composition
 
-[[contracts.contracts]]
-name = app_depends_only_on_domain
+[contract:app_depends_only_on_domain]
 type = layers
-layers = []
+layers =
+    mug.modules.users.domain
+    mug.modules.users.application
 
-[[contracts.contracts]]
-name = infra_can_import_app_public
+[contract:infra_can_import_app_public]
 type = forbidden
-source_modules = []
-forbidden_modules = []
+source_modules =
+    mug.modules.users.infrastructure
+forbidden_modules =
+    mug.modules.users.domain
+    mug.modules.users.presentation
+    mug.modules.users.composition
 
-[[contracts.contracts]]
-name = no_cross_module_internals
+[contract:presentation_depends_only_on_app]
+type = forbidden
+source_modules =
+    mug.modules.users.presentation
+forbidden_modules =
+    mug.modules.users.domain
+    mug.modules.users.infrastructure
+    mug.modules.users.composition
+
+[contract:composition_isolated]
+type = forbidden
+source_modules =
+    mug.modules.users
+    mug.common
+forbidden_modules =
+    mug.composition
+
+[contract:no_cross_module_internals]
 type = independence
-modules = []
+modules =
+    mug.modules.users
