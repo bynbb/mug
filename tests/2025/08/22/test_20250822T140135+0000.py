@@ -733,3 +733,167 @@ def test_89_main_entry_returns_int_and_is_console_script_target():
     pj = load_pyproject()
     scripts = pj.get("project", {}).get("scripts", {})
     assert scripts.get("mug") == "mug.composition.__main__:main"
+    
+
+@pytest.mark.req(97)
+def test_97_top_level_mug_is_pep420_namespace():
+    """{DOC_KEY}+97"""
+    top = SRC_DIR / "mug"
+    assert top.exists() and top.is_dir(), "Expected src/mug directory to exist"
+    assert not (top / "__init__.py").exists(), "PEP 420 namespace package MUST NOT have __init__.py at src/mug"
+    # Sanity: subpackages may still be regular packages
+    assert (top / "composition").exists() or (top / "modules").exists() or (top / "common").exists()
+
+
+@pytest.mark.req(98)
+@pytest.mark.skip(reason=(
+    "{DOC_KEY}+98 — Addendum discourages layer-level public.py facades; "
+    "this repo’s base spec earlier REQUIRES them (e.g., req 22/23/26/36). "
+    "Boundary enforcement should be delegated to Import Linter and tests. "
+    "Marking as skipped to avoid conflicting assertions until policy is switched."
+))
+def test_98_no_artificial_public_facades():
+    """{DOC_KEY}+98 (policy conflict with earlier requirements)"""
+    # If/when the addendum supersedes earlier rules, implement a search that FAILS
+    # when {domain,application,infrastructure,presentation}/public.py exists.
+    return False
+
+
+@pytest.mark.req(99)
+def test_99_every_module_has_all_layer_slices_even_if_empty():
+    """{DOC_KEY}+99"""
+    modules_root = SRC_DIR / "mug" / "modules"
+    if not modules_root.exists():
+        pytest.skip("No modules found under src/mug/modules")
+    layer_names = ("composition", "domain", "application", "infrastructure", "presentation")
+    offenders = []
+    for mod in sorted([p for p in modules_root.iterdir() if p.is_dir()]):
+        missing = [ln for ln in layer_names if not (mod / ln).exists()]
+        if missing:
+            offenders.append((mod.name, missing))
+    assert not offenders, f"Each module must include all slices: {offenders}"
+
+
+@pytest.mark.req(100)
+@pytest.mark.skip(reason=(
+    "{DOC_KEY}+100 — Manual review: ‘files written once in final form without reopening’ "
+    "cannot be proven via static checks."
+))
+def test_100_files_written_once_final_form_stub():
+    """{DOC_KEY}+100 (manual review)"""
+    return False
+
+
+@pytest.mark.req(101)
+@pytest.mark.skip(reason=(
+    "{DOC_KEY}+101 — Manual review: generation of repetitive boilerplate (e.g., __init__.py) "
+    "via script is a process requirement. Add a scaffold tool and CI guard if desired."
+))
+def test_101_boilerplate_generated_by_script_stub():
+    """{DOC_KEY}+101 (manual review/process)"""
+    # Option for later: assert presence of a scaffold script/Make target.
+    return False
+
+
+@pytest.mark.req(102)
+def test_102_application_organized_by_use_case_with_command_query_handler():
+    """{DOC_KEY}+102 (heuristic)"""
+    # Heuristic: look for any folder under .../application/** that contains all of
+    # {command.py, query.py, handler.py}. This doesn’t enforce naming, just presence.
+    apps = list((SRC_DIR / "mug").rglob("modules/*/application"))
+    if not apps:
+        pytest.skip("No application folders detected")
+    found_any = False
+    for app_dir in apps:
+        for uc in [p for p in app_dir.rglob("*") if p.is_dir()]:
+            have = {f.name for f in uc.glob("*.py")}
+            if {"command.py", "query.py", "handler.py"}.issubset(have):
+                found_any = True
+                break
+        if found_any:
+            break
+    assert found_any, (
+        "Expected at least one use-case folder under application/ containing "
+        "command.py, query.py, and handler.py (per req 102)"
+    )
+
+
+@pytest.mark.req(103)
+def test_103_all_names_lowercase_snake_case():
+    """{DOC_KEY}+103"""
+    root = SRC_DIR / "mug"
+    if not root.exists():
+        pytest.skip("src/mug not found")
+    bad_paths = []
+
+    def _ok_name(name: str, is_file: bool) -> bool:
+        if name in {"__pycache__"}:
+            return True
+        if is_file:
+            # only enforce for Python source files
+            if not name.endswith(".py"):
+                return True
+            stem = name[:-3]
+            return bool(re.fullmatch(r"[a-z0-9_]+", stem))
+        return bool(re.fullmatch(r"[a-z0-9_]+", name))
+
+    for p in root.rglob("*"):
+        name = p.name
+        if not _ok_name(name, p.is_file()):
+            bad_paths.append(str(p.relative_to(SRC_DIR)))
+    assert not bad_paths, f"Non-lowercase_snake_case names found: {bad_paths}"
+
+
+@pytest.mark.req(104)
+def test_104_no_http_endpoints_and_presentation_limited_to_cli_wiring():
+    """{DOC_KEY}+104 (heuristic)"""
+    # Disallow typical HTTP server frameworks/usages in the repo
+    http_fw_pattern = r"\b(fastapi|flask|django\.|starlette|aiohttp\.web)\b"
+    assert not in_any_file(["src/mug/**/*.py"], http_fw_pattern), \
+        "HTTP web frameworks detected — presentation should be CLI-only"
+    # Presentation layer should not import http client/server libs
+    pres = SRC_DIR / "mug" / "modules"
+    if pres.exists():
+        assert not in_any_file(
+            ["src/mug/modules/**/presentation/**/*.py"],
+            r"\b(fastapi|flask|django\.|starlette|aiohttp|requests|httpx)\b"
+        ), "Presentation code appears to include HTTP concerns; keep it to CLI wiring"
+
+
+@pytest.mark.req(105)
+def test_105_import_linter_enforces_layer_and_module_independence():
+    """{DOC_KEY}+105"""
+    # Accept either .importlinter file or pyproject-managed config,
+    # but require that contracts exist to enforce layer deps and module independence.
+    cfg_file = REPO_ROOT / ".importlinter"
+    pj = load_pyproject()
+    tool_cfg = (pj.get("tool") or {}).get("importlinter")  # pyproject-based config
+    assert cfg_file.exists() or tool_cfg is not None, \
+        "Import Linter config must exist (.importlinter or [tool.importlinter] in pyproject.toml)"
+    hay = ""
+    if cfg_file.exists():
+        hay += load_text(cfg_file)
+    if tool_cfg is not None:
+        # Convert toml table to str for a simple presence check
+        hay += str(tool_cfg)
+    required_contract_names = [
+        "domain_independent",
+        "app_depends_only_on_domain",
+        "infra_can_import_app_public",
+        "no_cross_module_internals",
+    ]
+    for cname in required_contract_names:
+        assert cname in hay, f"Missing Import Linter contract: {cname}"
+
+
+@pytest.mark.req(106)
+def test_106_import_linter_contracts_declared_in_pyproject():
+    """{DOC_KEY}+106"""
+    # Addendum requires contracts to live in pyproject.toml so they evolve with tooling.
+    pj = load_pyproject()
+    tool_cfg = (pj.get("tool") or {}).get("importlinter")
+    assert tool_cfg is not None, "Expected [tool.importlinter] section in pyproject.toml (req 106)"
+    # Best-effort: ensure at least one contract name appears under the tool config
+    hay = str(tool_cfg)
+    assert any(k in hay for k in ("domain_independent", "app_depends_only_on_domain", "no_cross_module_internals")), \
+        "Import Linter contracts should be defined inside pyproject.toml"
