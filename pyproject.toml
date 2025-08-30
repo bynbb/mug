@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mug"
-version = "0.0.3"
+version = "0.0.4"
 description = "env-test branch: environment smokes for mug"
 readme = "README.md"
 requires-python = ">=3.11"
