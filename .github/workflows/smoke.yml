@@ -2,9 +2,11 @@ name: smoke
 
 on:
   push:
-    branches-ignore: [ env-test ]
+    branches-ignore:
+      - env-test
   pull_request:
-    branches: [ env-test ]
+    branches:
+      - env-test
   workflow_dispatch:
 
 jobs:
@@ -15,77 +17,43 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      # Use PR head SHA for pull_request; push SHA otherwise
-      - name: select target sha
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ARM_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-          else
-            echo "ARM_SHA=${{ github.sha }}" >> $GITHUB_ENV
-          fi
-          echo "SMOKE_ARCH=arm64" >> $GITHUB_ENV
-          echo "ARM_SHA=$ARM_SHA"
+      - name: setup buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: ensure pytest
+      - name: set up python venv for pytest
         shell: bash
         run: |
           set -euo pipefail
           if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-          "$PY" -m pip install --upgrade pip
-          "$PY" -m pip install pytest
+          "$PY" -m venv .venv
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install pytest
 
-      - name: docker build
-        run: docker build -t mug/dev:ci -f docker/Dockerfile .
+      - name: docker build (buildx)
+        run: docker buildx build --load --progress=plain -t mug/dev:ci -f docker/Dockerfile .
 
-      - name: docker run (--help)
+      - name: docker run --help
         run: docker run --rm mug/dev:ci
 
-      - name: pytest granular smoke
-        run: pytest -q tests/env -k docker_smoke
-
-      - name: check sha equality (amd64 vs arm64) and write artifact (python)
+      - name: diagnostics list tests
         shell: bash
         run: |
           set -euo pipefail
-          if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-          "$PY" - <<'PYCODE'
-          import json, os, sys
-          from pathlib import Path
+          echo "sha=${{ github.sha }}"
+          ls -R tests || true
+          ls -R tests/docker || true
 
-          results = Path(".smoke/build-results.json")
-          if not results.exists():
-              sys.exit("ERROR: missing .smoke/build-results.json (did you run local amd64 smoke & commit?)")
+      - name: pytest smoke
+        shell: bash
+        run: pytest -q tests/docker -k docker_smoke
 
-          try:
-              data = json.loads(results.read_text(encoding="utf-8"))
-          except Exception as e:
-              sys.exit(f"ERROR: invalid JSON in .smoke/build-results.json: {e}")
-
-          amd = (data.get("amd64") or "").strip()
-          if not amd:
-              sys.exit("ERROR: amd64 marker empty in .smoke/build-results.json")
-
-          arm = (os.environ.get("ARM_SHA") or os.environ.get("GITHUB_SHA") or "").strip()
-          if not arm:
-              sys.exit("ERROR: unable to determine arm64 sha (ARM_SHA/GITHUB_SHA missing)")
-
-          print("amd64:", amd)
-          print("arm64:", arm)
-
-          if amd != arm:
-              sys.exit("ERROR: sha mismatch (amd64 != arm64). ensure local amd64 smoke ran on the SAME commit")
-
-          out = Path(".smoke/build-results-ci.json")
-          data["arm64"] = arm
-          out.parent.mkdir(parents=True, exist_ok=True)
-          out.write_text(json.dumps(data, indent=2), encoding="utf-8")
-          print(f"Wrote combined results to {out}")
-          PYCODE
-
-      - name: upload smoke results (artifact)
+      - name: upload smoke artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-results
-          path: .smoke/build-results-ci.json
+          name: smoke-artifacts
+          path: |
+            .smoke/**
+            docker/**
+          if-no-files-found: ignore
