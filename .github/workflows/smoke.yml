@@ -2,25 +2,25 @@ name: smoke
 
 on:
   push:
-    branches-ignore:
-      - env-test
+    branches-ignore: [ env-test ]
+    tags-ignore: [ '**' ]
   pull_request:
-    branches:
-      - env-test
+    branches: [ env-test ]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: [ self-hosted, Linux, ARM64 ]
 
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: setup buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: set up python venv for pytest
+      - name: Ensure pytest is available
         shell: bash
         run: |
           set -euo pipefail
@@ -30,8 +30,28 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install pytest
 
-      - name: docker build (buildx)
-        run: docker buildx build --load --progress=plain -t mug/dev:ci -f docker/Dockerfile .
+      # Use Buildx with host networking so buildkitd inherits host DNS/egress
+      - name: Set up Buildx (host network)
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      # Retry wrapper for transient network hiccups
+      - name: docker build (buildx) with retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          tries=4
+          for i in $(seq 1 $tries); do
+            if docker buildx build --load --progress=plain \
+                 -t mug/dev:ci -f docker/Dockerfile .; then
+              exit 0
+            fi
+            echo "Build attempt $i failed. Retrying..."
+            sleep $((5 * i))
+          done
+          echo "Build failed after $tries attempts."
+          exit 1
 
       - name: docker run --help
         run: docker run --rm mug/dev:ci
@@ -40,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "sha=${{ github.sha }}"
+          echo "sha=${GITHUB_SHA}"
           ls -R tests || true
           ls -R tests/docker || true
 
