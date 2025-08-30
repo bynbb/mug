@@ -78,7 +78,7 @@ jobs:
           name: dist
           path: dist
 
-      - name: offline install from dist
+      - name: offline install from dist (verify wheel contents first)
         shell: bash
         run: |
           set -euo pipefail
@@ -89,14 +89,16 @@ jobs:
             echo "wheel file not found: dist/mug-*.whl"
             exit 1
           fi
-          echo "checking wheel contains 'mug/cli' package..."
-          if ! unzip -l "${WHEEL}" | grep -E '(^|/)mug/cli(/|/__init__\.py)'; then
-            echo "ERROR: wheel is missing the 'mug/cli' package/files"
+          echo "checking wheel contains 'mug/cli/__init__.py'..."
+          if ! unzip -p "${WHEEL}" "mug/cli/__init__.py" >/dev/null 2>&1; then
+            echo "ERROR: wheel is missing 'mug/cli/__init__.py'"
             unzip -l "${WHEEL}" || true
             exit 1
           fi
           echo "installing wheel: ${WHEEL}"
           python -m pip install --no-index --no-deps --force-reinstall "${WHEEL}"
+          echo "showing wheel contents (non-fatal)"
+          unzip -l "${WHEEL}" || true
 
       - name: smoke test (import + where)
         shell: bash
