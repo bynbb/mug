@@ -5,7 +5,7 @@ on:
     branches: [ env-test ]
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ env-test ]  # <-- run CI on PRs targeting env-test so required checks report
+    branches: [ env-test ]  # run CI on PRs targeting env-test so required checks report
 
 permissions:
   contents: write
@@ -89,10 +89,14 @@ jobs:
             echo "wheel file not found: dist/mug-*.whl"
             exit 1
           fi
+          echo "checking wheel contains 'mug/cli' package..."
+          if ! unzip -l "${WHEEL}" | grep -E '(^|/)mug/cli(/|/__init__\.py)'; then
+            echo "ERROR: wheel is missing the 'mug/cli' package/files"
+            unzip -l "${WHEEL}" || true
+            exit 1
+          fi
           echo "installing wheel: ${WHEEL}"
           python -m pip install --no-index --no-deps --force-reinstall "${WHEEL}"
-          echo "showing wheel contents (non-fatal)"
-          unzip -l "${WHEEL}" || true
 
       - name: smoke test (import + where)
         shell: bash
@@ -102,17 +106,16 @@ jobs:
           # cat > smoke.py <<'PY'
           # import importlib, sys
           # try:
-          #     m = importlib.import_module("mug")
+          #     m = importlib.import_module("mug.cli")
           # except Exception as e:
-          #     print("failed to import mug:", e)
+          #     print("failed to import mug.cli:", e)
           #     sys.exit(1)
-          # print("mug version:", getattr(m, "__version__", "<no __version__>"))
-          # print("mug module file:", getattr(m, "__file__", "<no __file__>"))
+          # print("module file:", getattr(m, "__file__", "<no __file__>"))
           # PY
           # python smoke.py
 
           # YAML-safe equivalent:
-          python -c $'import importlib, sys\nm=importlib.import_module("mug")\nprint("mug version:",getattr(m,"__version__","<no __version__>"))\nprint("mug module file:",getattr(m,"__file__","<no __file__>"))'
+          python -c $'import importlib, sys\nm=importlib.import_module("mug.cli")\nprint("module file:", getattr(m,"__file__","<no __file__>"))'
 
   deploy:
     needs: [ build, smoke ]
