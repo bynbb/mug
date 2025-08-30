@@ -11,11 +11,8 @@ def _assert_docker_ready() -> None:
 
 def test_build_and_run_cli_help():
     _assert_docker_ready()
-    # If your self-hosted runner has flaky DNS, add: --network=host
-    run("docker build -t mug/dev:local -f docker/Dockerfile .")
+    # Use host networking so the build phase can resolve/fetch python packages
+    run("docker build --network=host -t mug/dev:local -f docker/Dockerfile .")
     out = run("docker run --rm mug/dev:local")
     assert out.returncode == 0
-    # Optional: assert a known marker to ensure the CLI actually ran
     assert out.stdout is not None and out.stdout.strip() != ""
-    # e.g., if __main__.py prints this:
-    # assert "mug CLI entrypoint" in out.stdout

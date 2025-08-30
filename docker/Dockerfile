@@ -5,5 +5,5 @@ COPY pyproject.toml README.md ./
 COPY src/mug ./src/mug
 RUN python -m pip install --no-cache-dir --upgrade pip && \
     pip install .
-# (optional) set entrypoint if you ship a CLI
-# ENTRYPOINT ["mug"]
+# Run the CLI by default so `docker run mug/dev:local` does something deterministic
+CMD ["python", "-m", "mug.cli"]
