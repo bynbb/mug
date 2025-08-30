@@ -1,70 +1,59 @@
 name: smoke
-jobs:
-  smoke:
-    runs-on:
-    - self-hosted
-    - Linux
-    - ARM64
-    steps:
-    - name: checkout
-      uses: actions/checkout@v4
-    - name: setup buildx
-      uses: docker/setup-buildx-action@v3
-    - name: set up python venv for pytest
-      shell: bash
-      run: 'set -euo pipefail
 
-        if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-
-        "$PY" -m venv .venv
-
-        echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-
-        .venv/bin/python -m pip install --upgrade pip
-
-        .venv/bin/python -m pip install pytest
-
-        '
-    - name: docker build (buildx)
-      run: docker buildx build --load --progress=plain -t mug/dev:ci -f docker/Dockerfile
-        .
-    - name: docker run --help
-      run: docker run --rm mug/dev:ci
-    - name: diagnostics list tests
-      shell: bash
-      run: 'set -euo pipefail
-
-        echo "sha=${{ github.sha }}"
-
-        ls -R tests || true
-
-        ls -R tests/docker || true
-
-        '
-    - name: pytest smoke
-      shell: bash
-      run: pytest -q tests/docker -k docker_smoke
-    - name: upload smoke artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: smoke-artifacts
-        path: '.smoke/**
-
-          docker/**
-
-          '
-        if-no-files-found: ignore
-'on':
+on:
   push:
     branches-ignore:
-    - env-test
-    tags-ignore:
-    - '**'
+      - env-test
   pull_request:
     branches:
-    - env-test
-  workflow_dispatch: null
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+      - env-test
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, Linux, ARM64]
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: set up python venv for pytest
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
+          "$PY" -m venv .venv
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install pytest
+
+      - name: docker build (buildx)
+        run: docker buildx build --load --progress=plain -t mug/dev:ci -f docker/Dockerfile .
+
+      - name: docker run --help
+        run: docker run --rm mug/dev:ci
+
+      - name: diagnostics list tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "sha=${{ github.sha }}"
+          ls -R tests || true
+          ls -R tests/docker || true
+
+      - name: pytest smoke
+        shell: bash
+        run: pytest -q tests/docker -k docker_smoke
+
+      - name: upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          path: |
+            .smoke/**
+            docker/**
+          if-no-files-found: ignore
