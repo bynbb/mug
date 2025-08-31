@@ -2,7 +2,16 @@ import shutil, subprocess, shlex
 import pytest
 
 def run(cmd: str, timeout: int = 600):
-    return subprocess.run(shlex.split(cmd), check=True, capture_output=True, text=True, timeout=timeout)
+    # Force UTF-8 decoding and avoid failures on unrepresentable bytes from child processes.
+    return subprocess.run(
+        shlex.split(cmd),
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
 
 def _assert_docker_ready() -> None:
     if shutil.which("docker") is None:
