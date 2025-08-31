@@ -1,34 +1,13 @@
-# Git and CI
-.git
-.github
-.smoke
-
-# Python junk
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pdb
-*.egg-info
-*.egg
-.eggs/
-
-# Environments
 .venv
 venv
-.env
-.env.*
-
-# Build outputs
-build/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.git
+.gitignore
 dist/
-*.log
-coverage.*
+build/
+htmlcov/
 
-# Project docs and tests (not needed inside runtime image)
-docs/
-tests/
-
-# Node / Husky
-node_modules/
-npm-debug.log
