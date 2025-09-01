@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: install project + test deps (wheel-based)
         run: |
           set -euo pipefail
@@ -26,10 +27,23 @@ jobs:
           python -m build --sdist --wheel
           pip install dist/*.whl
           pip install ruff mypy pytest pytest-cov pytest-mock
+
+      - name: install import-linter (pinned)
+        run: |
+          set -euo pipefail
+          pip install import-linter==2.4 grimp==3.11
+
+      - name: architecture contracts (Import Linter)
+        run: |
+          set -euo pipefail
+          rm -rf .import_linter_cache || true
+          lint-imports --config .importlinter --show-timings
+
       - name: run tests (use pytest.ini addopts)
         run: |
           set -euo pipefail
           python -m pytest
+
       - name: upload html report
         if: always()
         uses: actions/upload-artifact@v4
