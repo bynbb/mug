@@ -1,0 +1,141 @@
+[importlinter]
+root_packages =
+    mug.cli
+    mug.common.domain
+    mug.common.application
+    mug.common.presentation
+    mug.common.infrastructure
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.documents.infrastructure
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+    mug.modules.system.infrastructure
+include_external_packages = False
+
+[importlinter:contract:layers_common]
+name = Common respects layering
+type = layers
+layers =
+    mug.common.domain
+    mug.common.application
+    mug.common.presentation
+    mug.common.infrastructure
+
+[importlinter:contract:layers_documents]
+name = Documents respects layering
+type = layers
+layers =
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.documents.infrastructure
+
+[importlinter:contract:layers_system]
+name = System respects layering
+type = layers
+layers =
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+    mug.modules.system.infrastructure
+
+[importlinter:contract:common_is_abstract]
+name = Common must not import modules or CLI
+type = forbidden
+source_modules =
+    mug.common.domain
+    mug.common.application
+    mug.common.presentation
+    mug.common.infrastructure
+forbidden_modules =
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.documents.infrastructure
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+    mug.modules.system.infrastructure
+    mug.cli
+
+[importlinter:contract:only_cli_imports_documents_infra]
+name = Only CLI may import documents.infrastructure
+type = forbidden
+source_modules =
+    mug.common.domain
+    mug.common.application
+    mug.common.presentation
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+forbidden_modules =
+    mug.modules.documents.infrastructure
+
+[importlinter:contract:only_cli_imports_system_infra]
+name = Only CLI may import system.infrastructure
+type = forbidden
+source_modules =
+    mug.common.domain
+    mug.common.application
+    mug.common.presentation
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+forbidden_modules =
+    mug.modules.system.infrastructure
+
+[importlinter:contract:nothing_imports_cli]
+name = Nothing may import CLI
+type = forbidden
+source_modules =
+    mug.common.domain
+    mug.common.application
+    mug.common.presentation
+    mug.common.infrastructure
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.documents.infrastructure
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+    mug.modules.system.infrastructure
+forbidden_modules =
+    mug.cli
+
+[importlinter:contract:documents_must_not_import_system]
+name = Documents must not import System
+type = forbidden
+source_modules =
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.documents.infrastructure
+forbidden_modules =
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+    mug.modules.system.infrastructure
+
+[importlinter:contract:system_must_not_import_documents]
+name = System must not import Documents
+type = forbidden
+source_modules =
+    mug.modules.system.domain
+    mug.modules.system.application
+    mug.modules.system.presentation
+    mug.modules.system.infrastructure
+forbidden_modules =
+    mug.modules.documents.domain
+    mug.modules.documents.application
+    mug.modules.documents.presentation
+    mug.modules.documents.infrastructure
