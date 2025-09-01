@@ -1,0 +1,76 @@
+name: commitlint
+
+on:
+  push:
+    branches: ['**']   # all branches (env-test, main, others)
+    tags:     ['**']   # all tags
+  pull_request:
+    branches: ['**']   # all PRs
+  workflow_dispatch:
+
+jobs:
+  commitlint:
+    runs-on: self-hosted  # keep your self-hosted label(s)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # we need history to compute ranges
+
+      - run: npm i --no-fund --no-audit
+
+      - name: Lint commit messages (push/PR/tag aware)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ZEROES=0000000000000000000000000000000000000000
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* ]]; then
+            # ---- TAG PUSH ----
+            TO="${GITHUB_SHA}"
+            # Try the parent of the tagged commit; if none, fall back to just the tag commit
+            FROM="$(git rev-list -n 1 "${TO}~1" 2>/dev/null || true)"
+            if [[ -z "${FROM}" ]]; then
+              echo "From: (none; first commit?)"
+              echo "To:   ${TO}"
+              echo "No previous commit detected for tag, skipping commitlint."
+              exit 0
+            fi
+            echo "From: ${FROM}"
+            echo "To:   ${TO}"
+            npx commitlint --from "${FROM}" --to "${TO}" --config config/node/commitlint.config.js
+
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            # ---- REGULAR PUSH ----
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+            echo "From: ${FROM}"
+            echo "To:   ${TO}"
+            if [[ "${FROM}" == "${ZEROES}" ]]; then
+              echo "No previous commit detected, skipping commitlint."
+              exit 0
+            fi
+            npx commitlint --from "${FROM}" --to "${TO}" --config config/node/commitlint.config.js
+
+          elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            # ---- PR ----
+            FROM="${{ github.event.pull_request.base.sha }}"
+            TO="${{ github.event.pull_request.head.sha }}"
+            echo "From: ${FROM}"
+            echo "To:   ${TO}"
+            # Base SHA should exist for PRs; if ever missing, just skip
+            if [[ -z "${FROM}" || "${FROM}" == "${ZEROES}" ]]; then
+              echo "No valid base SHA for PR, skipping commitlint."
+              exit 0
+            fi
+            npx commitlint --from "${FROM}" --to "${TO}" --config config/node/commitlint.config.js
+
+          else
+            # ---- MANUAL / OTHER ----
+            FROM="HEAD~20"
+            TO="HEAD"
+            echo "From: ${FROM}"
+            echo "To:   ${TO}"
+            npx commitlint --from "${FROM}" --to "${TO}" --config config/node/commitlint.config.js
+          fi
