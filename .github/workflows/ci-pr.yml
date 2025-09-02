@@ -2,7 +2,10 @@ name: CI-CD PR
 
 on:
   pull_request:
-    branches: [ env-test ]
+    branches:
+      - main
+      - env-test
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,30 +19,28 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: install project + test deps (wheel-based)
+      - name: install project + test deps (editable)
+        shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -U pip build
-          python -m build --sdist --wheel
-          pip install dist/*.whl
-          pip install ruff mypy pytest pytest-cov pytest-mock
-
-      - name: install import-linter (pinned)
-        run: |
-          set -euo pipefail
-          pip install import-linter==2.4 grimp==3.11
+          python -m pip install -U pip
+          # brings in pytest, ruff, import-linter, pyyaml, etc. from pyproject optional deps
+          python -m pip install -e .[test]
 
       - name: architecture contracts (Import Linter)
+        shell: bash
         run: |
           set -euo pipefail
           rm -rf .import_linter_cache || true
           lint-imports --config .importlinter --show-timings
 
       - name: run tests (use pytest.ini addopts)
+        shell: bash
         run: |
           set -euo pipefail
           python -m pytest
@@ -57,14 +58,18 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: build sdist + wheel
+        shell: bash
         run: |
           set -euo pipefail
           python -m pip install -U pip build
           python -m build --sdist --wheel
+
       - name: upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -76,21 +81,24 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: download dist artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
+
       - name: offline install from dist (verify wheel contents first)
         shell: bash
         run: |
           set -euo pipefail
           echo "listing dist/"
           ls -lah dist
-          WHEEL="$(ls dist/mug-*.whl 2>/dev/null | head -n1 || true)"
+          WHEEL="$(ls dist/mug-*.whl 2>/devnull | head -n1 || true)"
           if [[ -z "${WHEEL}" ]]; then
             echo "wheel file not found: dist/mug-*.whl"
             exit 1
@@ -105,8 +113,9 @@ jobs:
           python -m pip install --no-index --no-deps --force-reinstall "${WHEEL}"
           echo "showing wheel contents (non-fatal)"
           unzip -l "${WHEEL}" || true
+
       - name: smoke test (import + where)
         shell: bash
         run: |
           set -euo pipefail
-          python -c $'import importlib, sys\nm=importlib.import_module("mug.cli")\nprint("module file:", getattr(m,"__file__","<no __file__>"))'
+          python -c $'import importlib\nm=importlib.import_module("mug.cli")\nprint("module file:", getattr(m,"__file__","<no __file__>"))'
