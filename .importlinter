@@ -1,19 +1,15 @@
 [importlinter]
+# Scan one real root to avoid failures when subpackages don't exist yet.
 root_packages =
-    mug.cli
-    mug.common.domain
-    mug.common.application
-    mug.common.presentation
-    mug.common.infrastructure
-    mug.modules.documents.domain
-    mug.modules.documents.application
-    mug.modules.documents.presentation
-    mug.modules.documents.infrastructure
-    mug.modules.system.domain
-    mug.modules.system.application
-    mug.modules.system.presentation
-    mug.modules.system.infrastructure
+    mug
 include_external_packages = False
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LAYERING CONTRACTS
+# These will simply treat non-existent layers as empty until you add code,
+# but they'll start enforcing as soon as packages appear.
+# ──────────────────────────────────────────────────────────────────────────────
 
 [importlinter:contract:layers_common]
 name = Common respects layering
@@ -41,6 +37,11 @@ layers =
     mug.modules.system.application
     mug.modules.system.presentation
     mug.modules.system.infrastructure
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FORBIDDEN IMPORT CONTRACTS
+# ──────────────────────────────────────────────────────────────────────────────
 
 [importlinter:contract:common_is_abstract]
 name = Common must not import modules or CLI

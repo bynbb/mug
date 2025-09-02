@@ -2,7 +2,10 @@ name: CI-CD Push
 
 on:
   push:
-    branches: [ env-test ]
+    branches:
+      - main
+      - env-test
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,30 +19,44 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: install project + test deps (wheel-based)
+      - name: install project + test deps (editable)
+        shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -U pip build
-          python -m build --sdist --wheel
-          pip install dist/*.whl
-          pip install ruff mypy pytest pytest-cov pytest-mock
+          python -m pip install -U pip
+          # project + optional test extras
+          python -m pip install -e .[test]
+          # ensure ruff & mypy are present even if not in extras
+          python -m pip install ruff mypy
 
-      - name: install import-linter (pinned)
+      - name: ruff (lint)
+        shell: bash
         run: |
           set -euo pipefail
-          pip install import-linter==2.4 grimp==3.11
+          python -m ruff --version
+          python -m ruff check --output-format=github .
+
+      - name: mypy (type-check)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mypy --version
+          python -m mypy --config-file mypy.ini src
 
       - name: architecture contracts (Import Linter)
+        shell: bash
         run: |
           set -euo pipefail
           rm -rf .import_linter_cache || true
           lint-imports --config .importlinter --show-timings
 
       - name: run tests (use pytest.ini addopts)
+        shell: bash
         run: |
           set -euo pipefail
           python -m pytest
@@ -57,14 +74,18 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: build sdist + wheel
+        shell: bash
         run: |
           set -euo pipefail
           python -m pip install -U pip build
           python -m build --sdist --wheel
+
       - name: upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -76,37 +97,77 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: download dist artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
+
       - name: offline install from dist (verify wheel contents first)
         shell: bash
         run: |
           set -euo pipefail
           echo "listing dist/"
-          ls -lah dist
-          WHEEL="$(ls dist/mug-*.whl 2>/dev/null | head -n1 || true)"
-          if [[ -z "${WHEEL}" ]]; then
-            echo "wheel file not found: dist/mug-*.whl"
+          ls -lah dist || true
+
+          # find exactly one wheel
+          mapfile -t WHEELS < <(ls dist/mug-*.whl 2>/dev/null || true)
+          if [[ ${#WHEELS[@]} -eq 0 ]]; then
+            echo "ERROR: wheel file not found: dist/mug-*.whl"
+            ls -lah dist || true
+            exit 1
+          elif [[ ${#WHEELS[@]} -gt 1 ]]; then
+            echo "ERROR: multiple wheels found:"
+            printf '  %s\n' "${WHEELS[@]}"
             exit 1
           fi
-          echo "checking wheel contains 'mug/cli/__init__.py'..."
-          if ! unzip -p "${WHEEL}" "mug/cli/__init__.py" >/dev/null 2>&1; then
-            echo "ERROR: wheel is missing 'mug/cli/__init__.py'"
-            unzip -l "${WHEEL}" || true
-            exit 1
-          fi
+          WHEEL="${WHEELS[0]}"
+          echo "candidate wheel: ${WHEEL}"
+
+          echo "verifying wheel contains 'mug/cli/__init__.py' via Python stdlib..."
+          export WHEEL
+          python - <<'PY'
+import os, zipfile
+wheel = os.environ.get("WHEEL")
+if not wheel:
+    print("ERROR: WHEEL env var not set"); raise SystemExit(1)
+want = "mug/cli/__init__.py"
+with zipfile.ZipFile(wheel) as zf:
+    names = set(zf.namelist())
+    if want not in names:
+        print("ERROR: wheel is missing", want)
+        for n in sorted(n for n in names if n.startswith("mug/")):
+            print("  ", n)
+        raise SystemExit(1)
+print("OK: wheel contains", want)
+PY
+
           echo "installing wheel: ${WHEEL}"
           python -m pip install --no-index --no-deps --force-reinstall "${WHEEL}"
-          echo "showing wheel contents (non-fatal)"
-          unzip -l "${WHEEL}" || true
+
+          echo "showing wheel contents (non-fatal, Python stdlib)"
+          python - <<'PY'
+import os, zipfile
+wheel = os.environ.get("WHEEL")
+with zipfile.ZipFile(wheel) as zf:
+    for n in sorted(zf.namelist()):
+        if n.startswith(("mug/", "mug-")):
+            print(n)
+PY
+
       - name: smoke test (import + where)
         shell: bash
         run: |
           set -euo pipefail
-          python -c $'import importlib, sys\nm=importlib.import_module("mug.cli")\nprint("module file:", getattr(m,"__file__","<no __file__>"))'
+          python - <<'PY'
+import importlib
+for mod in ("mug", "mug.cli"):
+    m = importlib.import_module(mod)
+    print(f"{mod} file:", getattr(m, "__file__", "<no __file__>"))
+importlib.import_module("mug.cli")
+PY
