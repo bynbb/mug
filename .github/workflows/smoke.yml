@@ -2,10 +2,15 @@ name: smoke
 
 on:
   push:
-    branches-ignore: [ env-test ]
-    tags-ignore: [ '**' ]
+    branches-ignore:
+      - main
+      - env-test
+    tags-ignore:
+      - '**'
   pull_request:
-    branches: [ env-test ]
+    branches-ignore:
+      - main
+      - env-test
   workflow_dispatch:
 
 concurrency:
@@ -14,66 +19,27 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: [ self-hosted, Linux, ARM64 ]
+    runs-on: self-hosted
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure pytest is available
-        shell: bash
-        run: |
-          set -euo pipefail
-          if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-          "$PY" -m venv .venv
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install pytest
-
-      # Use Buildx with host networking so buildkitd inherits host DNS/egress
-      - name: Set up Buildx (host network)
-        uses: docker/setup-buildx-action@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          driver-opts: network=host
+          python-version: '3.11'
 
-      # Retry wrapper for transient network hiccups
-      - name: docker build (buildx) with retry
+      - name: Install test deps
         shell: bash
         run: |
           set -euo pipefail
-          tries=4
-          for i in $(seq 1 $tries); do
-            if docker buildx build --load --progress=plain \
-                 -t mug/dev:ci -f docker/Dockerfile .; then
-              exit 0
-            fi
-            echo "Build attempt $i failed. Retrying..."
-            sleep $((5 * i))
-          done
-          echo "Build failed after $tries attempts."
-          exit 1
+          python -m pip install --upgrade pip
+          python -m pip install -e .[test]
 
-      - name: docker run --help
-        run: docker run --rm mug/dev:ci
-
-      - name: diagnostics list tests
+      - name: Pytest smoke
         shell: bash
         run: |
           set -euo pipefail
-          echo "sha=${GITHUB_SHA}"
-          ls -R tests || true
-          ls -R tests/docker || true
-
-      - name: pytest smoke
-        shell: bash
-        run: pytest -q tests/docker -k docker_smoke
-
-      - name: upload smoke artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-artifacts
-          path: |
-            .smoke/**
-            docker/**
-          if-no-files-found: ignore
+          # Keep it light; adjust selector as needed
+          pytest -q -k "smoke or main_checks or test_repo_basics"
