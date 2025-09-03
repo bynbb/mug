@@ -29,9 +29,9 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install -U pip
-          # project + optional test extras
+          # project + optional test extras (pytest, ruff, mypy, import-linter, pyyaml, etc.)
           python -m pip install -e .[test]
-          # ensure ruff & mypy are present even if not in extras
+          # ensure tools present even if extras change
           python -m pip install ruff mypy
 
       - name: ruff (lint)
@@ -46,7 +46,6 @@ jobs:
         run: |
           set -euo pipefail
           python -m mypy --version
-          # adjust targets as you prefer
           python -m mypy --config-file mypy.ini src
 
       - name: architecture contracts (Import Linter)
@@ -116,60 +115,29 @@ jobs:
           echo "listing dist/"
           ls -lah dist || true
 
-          # find exactly one wheel
-          mapfile -t WHEELS < <(ls dist/mug-*.whl 2>/dev/null || true)
-          if [[ ${#WHEELS[@]} -eq 0 ]]; then
-            echo "ERROR: wheel file not found: dist/mug-*.whl"
-            ls -lah dist || true
-            exit 1
-          elif [[ ${#WHEELS[@]} -gt 1 ]]; then
-            echo "ERROR: multiple wheels found:"
-            printf '  %s\n' "${WHEELS[@]}"
+          # find exactly one wheel (match working style, avoid heredocs)
+          WHEEL="$(ls dist/mug-*.whl 2>/dev/null | head -n1 || true)"
+          if [[ -z "${WHEEL}" ]]; then
+            echo "wheel file not found: dist/mug-*.whl"
             exit 1
           fi
-          WHEEL="${WHEELS[0]}"
           echo "candidate wheel: ${WHEEL}"
 
-          echo "verifying wheel contains 'mug/cli/__init__.py' via Python stdlib..."
-          export WHEEL
-          python - <<'PY'
-import os, zipfile, sys
-wheel = os.environ.get("WHEEL")
-if not wheel:
-    print("ERROR: WHEEL env var not set")
-    raise SystemExit(1)
-want = "mug/cli/__init__.py"
-with zipfile.ZipFile(wheel) as zf:
-    names = set(zf.namelist())
-    if want not in names:
-        print("ERROR: wheel is missing", want)
-        for n in sorted(n for n in names if n.startswith("mug/")):
-            print("  ", n)
-        raise SystemExit(1)
-print("OK: wheel contains", want)
-PY
+          echo "checking wheel contains 'mug/cli/__init__.py'..."
+          if ! unzip -p "${WHEEL}" "mug/cli/__init__.py" >/dev/null 2>&1; then
+            echo "ERROR: wheel is missing 'mug/cli/__init__.py'"
+            unzip -l "${WHEEL}" || true
+            exit 1
+          fi
 
           echo "installing wheel: ${WHEEL}"
           python -m pip install --no-index --no-deps --force-reinstall "${WHEEL}"
 
-          echo "showing wheel contents (non-fatal, Python stdlib)"
-          python - <<'PY'
-import os, zipfile
-wheel = os.environ.get("WHEEL")
-with zipfile.ZipFile(wheel) as zf:
-    for n in sorted(zf.namelist()):
-        if n.startswith(("mug/", "mug-")):
-            print(n)
-PY
+          echo "showing wheel contents (non-fatal)"
+          unzip -l "${WHEEL}" || true
 
       - name: smoke test (import + where)
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-import importlib
-for mod in ("mug", "mug.cli"):
-    m = importlib.import_module(mod)
-    print(f"{mod} file:", getattr(m, "__file__", "<no __file__>"))
-importlib.import_module("mug.cli")
-PY
+          python -c $'import importlib\nm=importlib.import_module("mug.cli")\nprint("module file:", getattr(m,"__file__","<no __file__>"))'
